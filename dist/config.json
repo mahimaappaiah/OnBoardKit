@@ -1,0 +1,25 @@
+{
+  "theme": {
+    "primaryColor": "#2563eb",
+    "primaryHoverColor": "#1d4ed8",
+    "backgroundColor": "#f8fafc",
+    "surfaceColor": "#ffffff",
+    "textColor": "#0f172a",
+    "textMutedColor": "#64748b",
+    "errorColor": "#ef4444",
+    "borderColor": "#e2e8f0",
+    "borderRadius": "12px",
+    "logoText": "OnboardKit"
+  },
+  "language": "en",
+  "steps": [
+    "details",
+    "id_capture",
+    "selfie_capture",
+    "document_upload",
+    "review"
+  ],
+  "title": "Identity Verification",
+  "description": "Secure, fast, and accessible digital onboarding flow."
+}
+
