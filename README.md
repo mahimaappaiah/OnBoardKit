@@ -1,190 +1,181 @@
 # OnboardKit
 
-> **A configurable, mobile-first, KYC-style user onboarding flow.**  
-> Built with **React 18, TypeScript, Vite, Tailwind CSS, and Vitest**.  
-> Designed as a high-performance portfolio demo with **100% client-side data privacy** (zero uploads, zero persistent tracking, and mock/fake branding).
+> **A configurable, mobile-first, KYC (Know Your Customer) identity verification platform.**  
+> Built with **React 18, TypeScript, Vite, Tailwind CSS, Tesseract.js, and Vitest**.  
+> Designed as an authentic portfolio-grade identity verification system featuring **client-side OCR, optical quality assessment, a deterministic compliance rule engine, and 100% in-browser privacy** (zero server uploads, zero persistent document tracking, and mock/demo branding).
 
 ---
 
-## Visual Flow & Architecture
+## Architecture & Verification Pipeline
 
 ```
-                                 [ config.json ]
-                                        │
-             ┌──────────────────────────┴──────────────────────────┐
-             ▼                                                     ▼
-     Theme (CSS Variables)                                Language Dictionaries
-  --color-primary, --border-radius                         English (en) / हिन्दी (hi)
-             │                                                     │
-             └──────────────────────────┬──────────────────────────┘
-                                        ▼
-                            [ OnboardingProvider ]
-                         (Isolated Context State)
-                                        │
- ┌──────────────┬───────────────────────┼───────────────────────┬──────────────┐
- ▼              ▼                       ▼                       ▼              ▼
-[Details]  [ID Capture]*       [Selfie Capture]*       [Document]  [Review & Submit]
- (Form)     (Camera / File)     (Camera / File)         (Upload)    (Verification)
-                │                       │
-                └───────────┬───────────┘
-                            ▼
-             *Lazy-Loaded Camera Chunk
-          (getUserMedia + Fallback Upload)
-                            │
-                            ▼
-               [ Host Portal / Embed SDK ]
-            (via iframe & window.postMessage)
+                                      [ config.json ]
+                                             │
+                  ┌──────────────────────────┴──────────────────────────┐
+                  ▼                                                     ▼
+          Theme (CSS Variables)                                Language Dictionaries
+       --color-primary, --border-radius                         English (en) / हिन्दी (hi)
+                  │                                                     │
+                  └──────────────────────────┬──────────────────────────┘
+                                             ▼
+                                 [ OnboardingProvider ]
+                              (Isolated React Context State)
+                                             │
+ ┌──────────────┬────────────────────────────┼────────────────────────────┬──────────────┐
+ ▼              ▼                            ▼                            ▼              ▼
+[Details]  [ID Capture]                [Selfie Capture]              [Document]     [Review Step]
+ (Form)     (Camera / File)             (Camera / File)               (Upload)           │
+                │                            │                            │              ▼
+                ├────────────────────────┐   │                            │       [Verification]
+                ▼                        ▼   ▼                            │        (Rule Engine)
+        [Tesseract.js OCR]       [Quality Analysis]                       │              │
+      (In-Browser Web Worker)   (Resolution/Light/Blur)                   │              ▼
+                │                        │                                │    ┌────────────────────┐
+                ▼                        ▼                                │    │ Three Outcomes:    │
+       [Editable OCR Form]      [Actionable Tips]                         │    │ 1. APPROVED        │
+      (User correction loop)                                              │    │ 2. MANUAL_REVIEW   │
+                │                                                         │    │ 3. REJECTED        │
+                └────────────────────────┬────────────────────────────────┘    └────────────────────┘
+                                         ▼                                               │
+                           [ Completed / Result Screen ] ◄───────────────────────────────┘
+                          (Detailed Checks & Next Action)
+                                         │
+                                         ▼
+                            [ Embed SDK / Host Portal ]
+                         (via iframe & window.postMessage)
 ```
 
 ---
 
-## Screen Walkthroughs (ASCII & Text Previews)
+## Real vs. Simulated Capabilities (Engineering Transparency)
+
+To maintain absolute professional integrity in technical interviews and code audits, the boundary between real client-side algorithms and demonstration constraints is clearly defined:
+
+| Capability | Implementation Type | Technical Mechanism |
+|---|---|---|
+| **Document OCR** | **REAL** | Runs client-side **Tesseract.js** in an isolated browser Web Worker. Extracts raw text glyphs and parses document numbers, names, DOB, and expiry dates via heuristic regexes. |
+| **Editable Field Correction** | **REAL** | Extracted fields populate an interactive form, giving the user control to verify and fix OCR mistakes before submission. |
+| **Document Quality Analysis** | **REAL** | Evaluates image dimensions (resolution), pixel luminance via the **ITU-R BT.601** formula (under/overexposure), and discrete gradient variance (sharpness/blur). |
+| **Actionable Quality Feedback** | **REAL** | Diagnoses lighting and blur issues in real time and provides tailored advice (e.g. tilt angle, distance, lighting). |
+| **Deterministic Decision Engine**| **REAL** | Evaluates compliance rules to return **Approved**, **Manual Review**, or **Rejected** with specific reason codes and audit checklists. |
+| **Hardware Camera Control** | **REAL** | Live WebRTC video feed with camera-switching, canvas snapshots, track termination on unmount, and fallback to HTML5 file inputs (`capture`). |
+| **Dynamic Theming & i18n** | **REAL** | CSS custom variables applied at runtime; complete English and Hindi translation dictionaries. |
+| **Iframe Embedding & Messaging** | **REAL** | Cross-window `postMessage` protocol relaying step changes and completed verification payloads with hardware sandbox permissions (`allow="camera"`). |
+| **Biometric Liveness & Matching**| **SIMULATED** | Labeled as a **Demonstration Check**. True 3D depth biometric facial matching and anti-spoofing require server-side certified biometrics (e.g., iBeta Level 2). |
+| **Document Authenticity Check** | **SIMULATED** | Client-side OCR extracts textual patterns; it **cannot** certify official paper watermarks, RFID chips, or holographic threads. |
+| **Government Registry Database** | **SIMULATED** | No remote calls are made to government databases (e.g., DMV, Interpol, Aadhaar). Everything stays in browser memory. |
+
+---
+
+## Verification Decision Rules Table
+
+The verification engine ([src/utils/verificationEngine.ts](file:///C:/Users/AASTHA/.gemini/antigravity/scratch/onboardkit/src/utils/verificationEngine.ts)) evaluates submitted data deterministically against predefined compliance criteria:
+
+| Outcome | Trigger Condition | Example Reason | Recommended Next Action |
+|---|---|---|---|
+| **REJECTED** | Expired identity document (`expiryDate < today`) | *"Submitted document expired on 2021-04-10. Expired documents cannot be accepted."* | *"Please retake with a valid, currently unexpired government ID."* |
+| **REJECTED** | Underage applicant (`age < 18`) | *"Applicant age (16 years) does not meet the minimum requirement of 18 years."* | *"Account registration is limited to individuals 18 years of age or older."* |
+| **REJECTED** | Severe image degradation (pitch black `< 20` luminance or extreme blur) | *"Document image is unreadable due to severe blur or underexposure."* | *"Please recapture your document in a brightly lit room, keeping the camera focused."* |
+| **REJECTED** | Missing required identity photo or selfie | *"Required identity documentation or selfie verification was missing."* | *"Please provide both a government ID and a front-facing selfie check."* |
+| **MANUAL_REVIEW** | Name discrepancy between form and document | *"Name on form ('Alex Morgan') does not match document name ('Alexander Morgan')."* | *"A compliance officer will review your submission within 1 business day."* |
+| **MANUAL_REVIEW** | Document expiring within 30 days | *"Document expires soon (2026-12-01). Requires manual compliance note."* | *"Manual confirmation required for documents nearing validity expiration."* |
+| **MANUAL_REVIEW** | Borderline quality warning (minor glare or low resolution) | *"Document resolution is borderline (450x320px)."* | *"Document readability will be confirmed by an onboarding agent."* |
+| **MANUAL_REVIEW** | OCR confidence below 70% | *"Automated text extraction confidence is below 70%."* | *"Manual review queued to verify extracted fields."* |
+| **APPROVED** | All automated rules satisfied | *"All automated KYC requirements and quality checks were satisfied."* | *"Your identity is verified. You can now access all portal features."* |
+
+---
+
+## Screen Walkthroughs (ASCII Previews)
 
 ````carousel
-```
-┌──────────────────────────────────────┐
-│  [OK] OnboardKit          🇮🇳 हिन्दी  │
-│  Step 1 of 5                     20% │
-│  ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
-├──────────────────────────────────────┤
-│  Personal Information                │
-│  Please provide your basic details   │
-│                                      │
-│  Full Legal Name *                   │
-│  [ Jane Doe                        ] │
-│                                      │
-│  Date of Birth (18+) *               │
-│  [ 1995-06-15                      ] │
-│                                      │
-│  Phone Number *                      │
-│  [ +1 555 123 4567                 ] │
-│                                      │
-│  Email Address *                     │
-│  [ jane.doe@example.com            ] │
-│                                      │
-│                 [ Continue (Next) ->]│
-└──────────────────────────────────────┘
-```
-<!-- slide -->
 ```
 ┌──────────────────────────────────────┐
 │  [OK] OnboardKit          🇮🇳 हिन्दी  │
 │  Step 2 of 5                     40% │
 ├──────────────────────────────────────┤
 │  ID Verification                     │
-│  Capture government-issued ID card   │
+│  Capture or upload government ID     │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ ⚡ Technical Interview Tool:   │  │
+│  │ [Passport]  [License]  [Expired]│  │
+│  └────────────────────────────────┘  │
 │                                      │
 │  ┌────────────────────────────────┐  │
 │  │ 📹 Live Stream (getUserMedia)  │  │
-│  │   ┌────────────────────────┐   │  │
-│  │   │   [ID Card Outline]    │   │  │
-│  │   │  Align ID card here    │   │  │
-│  │   └────────────────────────┘   │  │
+│  │  ┌──────────────────────────┐  │  │
+│  │  │ ─── Laser Scanline ───   │  │  │
+│  │  │ Align card in brackets   │  │  │
+│  │  └──────────────────────────┘  │  │
 │  └────────────────────────────────┘  │
-│                                      │
 │           [ 📷 Capture ID ]          │
-│                                      │
-│  (Or fallback to file upload below)  │
-│  [<- Back]                 [Continue]│
 └──────────────────────────────────────┘
 ```
 <!-- slide -->
 ```
 ┌──────────────────────────────────────┐
-│  [OK] OnboardKit          🇮🇳 हिन्दी  │
-│  Step 3 of 5                     60% │
+│  Extracted Document Fields (OCR)     │
+│  Tesseract.js Engine (Confidence: 96%)│
 ├──────────────────────────────────────┤
-│  Liveness Selfie                     │
-│  Match face against ID document      │
+│  Full Name (on Document):            │
+│  [ ALEXANDER MORGAN                ] │
 │                                      │
-│  ┌────────────────────────────────┐  │
-│  │ 📹 Front Camera (user facing)  │  │
-│  │        ╭────────────╮          │  │
-│  │        │ Center face│          │  │
-│  │        │    here    │          │  │
-│  │        ╰────────────╯          │  │
-│  └────────────────────────────────┘  │
+│  Date of Birth:      Expiry Date:    │
+│  [ 1992-08-14 ]     [ 2032-11-20 ]   │
 │                                      │
-│          [ 🤳 Take Selfie ]          │
+│  Document Number:    Document Type:  │
+│  [ P84920194  ]     [ Passport     ] │
 │                                      │
-│  [<- Back]                 [Continue]│
+│  [✓ Confirm & Use Extracted Data]    │
+│                                      │
+│  ℹ️ Client-side OCR reads text glyphs│
+│  in browser memory. Does not certify │
+│  official government authenticity.   │
 └──────────────────────────────────────┘
 ```
 <!-- slide -->
 ```
 ┌──────────────────────────────────────┐
-│  [OK] OnboardKit          🇮🇳 हिन्दी  │
-│  Step 4 of 5                     80% │
+│  Document Quality Analysis           │
 ├──────────────────────────────────────┤
-│  Supporting Document                 │
-│  Proof of address (utility bill)     │
+│  Brightness: Optimal (134/255)       │
+│  Sharpness:  Sharp (78/100)          │
+│  Resolution: 1280x720 (0.92 MP)      │
 │                                      │
-│  ┌ - - - - - - - - - - - - - - - - ┐ │
-│  │  📄 Tap or drag file to upload  │ │
-│  │  PDF, PNG, JPG up to 10MB       │ │
-│  └ - - - - - - - - - - - - - - - - ┘ │
-│                                      │
-│  [<- Back]                 [Continue]│
+│  Quality Feedback:                   │
+│  • Optical edges and font glyphs are │
+│    distinct and focused.             │
+│  • Lighting is well balanced with    │
+│    even illumination.                │
 └──────────────────────────────────────┘
 ```
 <!-- slide -->
 ```
 ┌──────────────────────────────────────┐
-│  [OK] OnboardKit          🇮🇳 हिन्दी  │
-│  Step 5 of 5                    100% │
+│  [ ✓ ] Verification Result Dashboard │
+│  Outcome: Identity Verified (Approved│
 ├──────────────────────────────────────┤
-│  Review Your Information             │
-│  ┌────────────────────────────────┐  │
-│  │ Personal Details       [Edit]  │  │
-│  │ Jane Doe • 1995-06-15          │  │
-│  │ +1 555 123 4567 • jane@...     │  │
-│  └────────────────────────────────┘  │
-│  ┌────────────────────────────────┐  │
-│  │ ID Photo [Ready] Selfie [Ready]│  │
-│  │ Utility_Bill.pdf (1.2 MB)      │  │
-│  └────────────────────────────────┘  │
-│  🔒 Demo Mode: Data stays in browser │
+│  Reference ID:       OK-849201       │
+│  Decision Protocol:  Rules Engine v2 │
 │                                      │
-│  [<- Back]  [Confirm & Complete Flow]│
+│  ┌────────────────────────────────┐  │
+│  │ Recommended Next Action:       │  │
+│  │ Your identity is verified. You │  │
+│  │ can access all portal features.│  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  Completed Checks Passed (6):        │
+│  ✓ Document Upload: Complete         │
+│  ✓ Age Requirement: 34 yrs (18+)     │
+│  ✓ Document Validity: Valid 2032     │
+│  ✓ Name Consistency: Matched         │
+│  ✓ Image Quality: Optimal            │
+│  ✓ Liveness Check: Demo Aligned      │
+│                                      │
+│  [ Restart Demo / Test Another ID ]  │
 └──────────────────────────────────────┘
 ```
 ````
-
----
-
-## Key Features
-
-1. **Config-Driven Architecture**:
-   - The entire onboarding flow, step sequence, theming, and language are governed by `config.json`.
-   - Changing `config.json` instantly rearranges or omits steps (e.g. omitting document upload for a 4-step fast track).
-   - Theme properties dynamically inject CSS variables (`--color-primary`, `--border-radius`, etc.) into the DOM for runtime re-theming without stylesheet recompilation.
-   - Built-in internationalization with comprehensive English (`en`) and Hindi (`hi`) dictionaries.
-
-2. **Hardware Camera Integration with Graceful Fallback**:
-   - Live camera preview via `navigator.mediaDevices.getUserMedia`.
-   - Automatic `facingMode`: `environment` (rear) for ID card alignment, and `user` (front) for selfie capture.
-   - Real-time frame capture via hidden HTML5 Canvas downscaled to high-quality JPEG data URL.
-   - Interactive preview with retake and track cleanup on unmount (prevents camera hardware light from staying active).
-   - **Permission-denied & Hardware-missing Fallback**: If permissions are denied or camera hardware is absent, an accessible alert explains the issue and presents a mobile-friendly file input using the HTML5 `capture` attribute (`capture="environment"` / `capture="user"`).
-
-3. **Pure Function Form Validation**:
-   - Separated into isolated, pure functions in `src/utils/validation.ts` for comprehensive testing.
-   - **Full Legal Name**: Enforces character minimums and supports multilingual Unicode letters (`\p{L}`) and combining vowel marks (`\p{M}`) for Indian (Devanagari) and accented names.
-   - **Date of Birth**: Validates format, historical past date, and strictly enforces the legal **18+ years** age requirement.
-   - **Phone & Email**: Validates standard 10–15 digit phone formats (with optional international prefixes) and RFC-compliant email formats.
-   - Inline errors with `aria-invalid` and `aria-describedby` associations.
-
-4. **Accessibility (WCAG AA) & Mobile Performance**:
-   - Focus management: Heading (`h2`) with `tabIndex={-1}` is automatically focused when transitioning between steps so screen readers immediately announce step changes.
-   - Full keyboard navigability with visible focus rings (`:focus-visible`).
-   - Progress bar with ARIA progress roles (`role="progressbar"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`).
-   - **Lazy Loading**: The camera module is lazy-loaded using `React.lazy` and `Suspense`, separating the camera bundle chunk (`CameraCapture-*.js`) from the initial load to target 90+ on mobile Lighthouse.
-
-5. **Embeddable SDK (`OnboardKit.mount`)**:
-   - Lightweight script allowing any third-party host website to embed the onboarding flow inside a container via an isolated `<iframe>`.
-   - Fully enables WebRTC hardware access within the iframe via `allow="camera; microphone; display-capture"`.
-   - Emits bidirectional `window.postMessage` events (`step_completed`, `flow_completed`, `ONBOARDKIT_SET_CONFIG`).
-   - Includes a sample host portal (`sample-host.html`) with live event logging and dynamic host configuration controls.
 
 ---
 
@@ -203,164 +194,70 @@ npm install
 ```bash
 npm run dev
 ```
-- Open `http://localhost:5173/` in your browser to view the standalone mobile flow.
-- Open `http://localhost:5173/sample-host.html` to test the embedded host portal with real-time event logging and dynamic configuration controls.
+- Standalone Verification Flow: `http://localhost:5173/`
+- Embedded Host Portal Demo: `http://localhost:5173/sample-host.html`
 
-### 3. Run the Test Suite
+### 3. Run the Vitest Test Suite
 ```bash
 npm run test
 ```
+*Current test suite:* **56 passing tests across 10 test suites**.
 
 ### 4. Run Coverage Reporting
 ```bash
 npm run test:coverage
 ```
-*Current test suite:* **37 passing unit & integration tests** across 6 suites with **>91% statement & line coverage**.
 
-### 5. Production Build
+### 5. Build for Production
 ```bash
 npm run build
 ```
 
 ---
 
-## Configuration Schema (`config.json`)
+## Testing Tools for Technical Interviews
 
-The flow is configured through a single JSON object. Example:
+To allow engineers and hiring managers to quickly test all verification paths without having to upload real IDs, OnboardKit includes pre-packaged demo documents accessible directly on the ID Capture screen:
 
-```json
-{
-  "theme": {
-    "primaryColor": "#2563eb",
-    "primaryHoverColor": "#1d4ed8",
-    "backgroundColor": "#f8fafc",
-    "surfaceColor": "#ffffff",
-    "textColor": "#0f172a",
-    "textMutedColor": "#64748b",
-    "errorColor": "#ef4444",
-    "borderColor": "#e2e8f0",
-    "borderRadius": "12px",
-    "logoText": "OnboardKit"
-  },
-  "language": "en",
-  "steps": [
-    "details",
-    "id_capture",
-    "selfie_capture",
-    "document_upload",
-    "review"
-  ],
-  "title": "Identity Verification",
-  "description": "Secure, fast, and accessible digital onboarding flow."
-}
-```
-
-### Configuration Parameters
-
-| Field | Type | Description |
-|---|---|---|
-| `theme.primaryColor` | `string` (hex) | Main brand color for primary buttons, focus rings, and active step dots. |
-| `theme.primaryHoverColor` | `string` (hex) | Hover and active state color for primary buttons. |
-| `theme.backgroundColor` | `string` (hex) | App background color. |
-| `theme.surfaceColor` | `string` (hex) | Card container surface color. |
-| `theme.textColor` | `string` (hex) | Primary text color. |
-| `theme.textMutedColor` | `string` (hex) | Secondary/muted label and hint color. |
-| `theme.errorColor` | `string` (hex) | Validation error text and border highlight color. |
-| `theme.borderRadius` | `string` | CSS border-radius value (e.g. `"12px"` or `"0.75rem"`). |
-| `theme.logoText` | `string` | Header brand logo title text. |
-| `language` | `"en"` \| `"hi"` | Default active language dictionary (English or Hindi). |
-| `steps` | `StepId[]` | Ordered array of steps: `details`, `id_capture`, `selfie_capture`, `document_upload`, `review`. |
+1. **Valid Passport (Alexander Morgan)**:
+   - Tests clean text extraction, matching name, future expiry date (2032), and leads to **APPROVED**.
+2. **Valid Driver License (Priya Sharma)**:
+   - Tests alternate document format, license number parsing, and leads to **APPROVED**.
+3. **Expired National ID (Robert Chen)**:
+   - Tests document expiry rule (`expiryDate: '2021-04-10'`) and leads deterministically to **REJECTED** with actionable feedback.
+4. **Editable Input Testing**:
+   - Change the extracted name to test the **MANUAL_REVIEW** branch (name mismatch detection).
 
 ---
 
-## Embed SDK (`OnboardKit.mount`)
+## Embed SDK Integration (`OnboardKit.mount`)
 
-Host websites can embed the flow using the standalone embed script:
+Host applications can embed the flow using the standalone embed script:
 
 ```html
-<!-- Container element -->
-<div id="kyc-container"></div>
-
-<!-- Load OnboardKit Embed SDK -->
+<div id="onboarding-container"></div>
 <script src="/onboardkit-embed.js"></script>
-
 <script>
-  const instance = OnboardKit.mount('#kyc-container', {
-    src: '/', // URL to OnboardKit app
+  const kit = OnboardKit.mount('#onboarding-container', {
+    src: '/',
     config: {
-      theme: {
-        primaryColor: '#059669',
-        logoText: 'FinBank Verify'
-      },
-      language: 'en',
-      steps: ['details', 'id_capture', 'selfie_capture', 'review']
+      theme: { primaryColor: '#2563eb', logoText: 'FinBank Verify' },
+      language: 'en'
     },
-    onStepCompleted: function (payload) {
-      console.log('User finished step:', payload.step);
-      console.log('Proceeding to step:', payload.nextStep);
+    onStepCompleted: function (event) {
+      console.log('Step finished:', event.step, 'Next:', event.nextStep);
     },
     onFlowCompleted: function (payload) {
-      console.log('KYC flow submitted successfully:', payload.details);
+      console.log('Verification completed with outcome:', payload);
     }
   });
-
-  // To update configuration dynamically:
-  // instance.setConfig({ language: 'hi' });
-
-  // To clean up and remove iframe:
-  // instance.unmount();
 </script>
 ```
 
-### Dispatched `postMessage` Events
-
-| Event Name | Direction | Payload Structure |
-|---|---|---|
-| `ONBOARDKIT_READY` | Iframe $\to$ Host | `{ type: "ONBOARDKIT_READY" }` |
-| `ONBOARDKIT_INIT` | Host $\to$ Iframe | `{ type: "ONBOARDKIT_INIT", config: { ... } }` |
-| `ONBOARDKIT_SET_CONFIG` | Host $\to$ Iframe | `{ type: "ONBOARDKIT_SET_CONFIG", config: { ... } }` |
-| `step_completed` | Iframe $\to$ Host | `{ step: "details", stepIndex: 0, nextStep: "id_capture", nextIndex: 1 }` |
-| `flow_completed` | Iframe $\to$ Host | `{ details: { fullName, dateOfBirth, phone, email }, hasIdCapture: true, ... }` |
-
 ---
 
-## Key Design Decisions
+## Security & Privacy Disclosures
 
-1. **State Management: React Context vs. External Stores (Zustand/Redux)**:
-   - **Decision**: Built using standard React Context (`OnboardingContext`).
-   - **Rationale**:
-     - Keeps the demo **100% dependency-free** and ultra-lightweight.
-     - Guarantees **instance isolation**: when multiple OnboardKit instances are mounted or embedded on the same page, each maintains isolated state without global store collisions.
-     - State survives component unmounts as users navigate back and forth between steps.
-
-2. **Theming via CSS Variables**:
-   - **Decision**: Mapped Tailwind classes to CSS custom properties (`var(--color-primary)`, `var(--border-radius)`).
-   - **Rationale**: Enables live, instantaneous runtime re-theming from `config.json` or parent `postMessage` without rebuilding or reloading stylesheets.
-
-3. **Pure Validation Functions**:
-   - **Decision**: Separated all validation into standalone pure functions in `src/utils/validation.ts`.
-   - **Rationale**: High testability, zero side effects, clean decoupling from UI components, and reusability.
-
-4. **Iframe Isolation for Embedding**:
-   - **Decision**: Embeds the flow inside a styled iframe with `allow="camera; microphone; display-capture"`.
-   - **Rationale**:
-     - Complete CSS style encapsulation: host styles (e.g., reset CSS, fonts, utility clashes) cannot break the onboarding card.
-     - Security boundary: host scripts cannot tamper with sensitive media canvas inputs.
-
-5. **Performance & Chunk Splitting**:
-   - **Decision**: Lazy loaded camera components with `React.lazy` and animated skeleton loading.
-   - **Rationale**: Keeps the initial JS bundle small (`~55 kB` gzipped), meeting high mobile Lighthouse performance benchmarks.
-
----
-
-## Known Limitations
-
-- **Client-Side Portfolio Demo**:
-  - All form entries, captured photos, and uploaded documents reside **exclusively in browser memory**. No data is stored, uploaded to S3/cloud buckets, or persisted across browser tab refreshes.
-- **Camera Permissions in Insecure Contexts**:
-  - WebRTC `navigator.mediaDevices.getUserMedia` requires a secure context (`https://` or `localhost`). Browsers automatically block camera access over plain `http://` on remote hosts. (The built-in fallback file upload is provided specifically to handle this limitation).
-- **Iframe WebRTC Restrictions**:
-  - If embedded in a third-party domain without `allow="camera; microphone"`, browsers will block camera access. The embed SDK explicitly attaches this attribute.
-- **Biometric Liveness**:
-  - The demo uses a simulated selfie alignment guide. Real-world KYC flows typically integrate proprietary biometric SDKs (e.g. face mesh blink detection) via backend verification services.
-
+- **Zero Server Uploads**: No identity document images, extracted text, selfie captures, or personally identifiable information (PII) are ever transmitted to an external server or persistent cloud database.
+- **In-Memory Web Worker**: Tesseract.js runs entirely in client-side Web Worker memory.
+- **No Permanent Tracking**: Refreshing or resetting the flow completely purges all in-memory data structures.

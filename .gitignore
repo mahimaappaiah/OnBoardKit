@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Production build artifacts
+dist/
+dist-ssr/
+
+# Test coverage
+coverage/
+
+# Local env & debug files
+*.local
+*.log
+npm-debug.log*
+
+# Editor & OS files
+.DS_Store
+.vscode/
+.idea/
